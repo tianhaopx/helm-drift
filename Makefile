@@ -34,7 +34,7 @@ local.check: local.fmt ## Loads all the dependencies to vendor directory
 	go mod vendor
 	go mod tidy
 
-local.build: local.check ## Generates the artifact with the help of 'go build'
+local.build: ## Generates the artifact with the help of 'go build'
 	@go build -o $(APP_NAME)_v$(VERSION) -ldflags="-s -w"
 
 local.deploy: local.build ## Generates the artifact with the help of 'go build'

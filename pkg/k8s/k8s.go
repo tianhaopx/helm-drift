@@ -17,7 +17,30 @@ type (
 type ResourceInterface interface {
 	Get(dataMap string, key string, log *logrus.Logger) (string, error)
 	GetMetadata(dataMap string, key string, log *logrus.Logger) (string, error)
+	GetItemsFromList(dataMap string, log *logrus.Logger) ([]string, error)
 	IsHelmHook(dataMap string, hookKinds []string) (bool, error)
+}
+
+func (resource *Resource) GetItemsFromList(dataMap string, _ *logrus.Logger) ([]string, error) {
+	if err := yaml.Unmarshal([]byte(dataMap), resource); err != nil {
+		return nil, err
+	}
+
+	kindYaml := *resource
+
+	value, failedManifest := kindYaml["items"].([]interface{})
+	if !failedManifest {
+		return nil, &errors.DriftError{Message: fmt.Sprintf("failed to get items from the manifest, check if the kind is List, manifest: %s", dataMap)}
+	}
+	var items []string
+	for _, item := range value {
+		itemString, err := yaml.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, string(itemString))
+	}
+	return items, nil
 }
 
 // Get helps in identifying kind form the kubernetes resource.

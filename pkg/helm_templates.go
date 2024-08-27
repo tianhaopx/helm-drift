@@ -3,6 +3,7 @@ package pkg
 import (
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/nikhilsbhat/helm-drift/pkg/deviation"
 	driftError "github.com/nikhilsbhat/helm-drift/pkg/errors"
@@ -15,6 +16,45 @@ type (
 	HelmTemplates []string
 	HelmTemplate  string
 )
+
+func (templates *HelmTemplates) FilterBySkipEmpty(drift *Drift) []string {
+	return funk.Filter(*templates, func(tmpl string) bool {
+		_, err := k8s.NewResource().Get(tmpl, "kind", nil)
+		if err != nil {
+			log.Printf("manifest: %s, error to check kind, consider it empty, skipping...", tmpl)
+			return false
+		}
+		return true
+	}).([]string)
+}
+
+func (templates *HelmTemplates) TransformList(drift *Drift) []string {
+	manifestsListKindOnly := funk.Filter(*templates, func(tmpl string) bool {
+		kind, err := k8s.NewResource().Get(tmpl, "kind", drift.log)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return strings.ToLower(kind) == "list"
+	}).([]string)
+
+	manifestsWithoutListKind := funk.Filter(*templates, func(tmpl string) bool {
+		kind, err := k8s.NewResource().Get(tmpl, "kind", drift.log)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return strings.ToLower(kind) != "list"
+	}).([]string)
+
+	for _, item := range manifestsListKindOnly {
+		itemsFromList, err := k8s.NewResource().GetItemsFromList(item, drift.log)
+		if err != nil {
+			log.Fatal(err)
+		}
+		manifestsWithoutListKind = append(manifestsWithoutListKind, itemsFromList...)
+	}
+
+	return manifestsWithoutListKind
+}
 
 func (templates *HelmTemplates) FilterBySkip2(drift *Drift) []string {
 	return funk.Filter(*templates, func(tmpl string) bool {

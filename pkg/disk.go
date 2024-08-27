@@ -16,9 +16,12 @@ const (
 )
 
 func (drift *Drift) renderToDisk(manifests []string, chartName, releaseName, releaseNamespace any) (*deviation.DriftedRelease, error) {
+	manifests = NewHelmTemplates(manifests).FilterBySkipEmpty(drift)
 	manifests = NewHelmTemplates(manifests).FilterByHelmHook(drift)
 	manifests = NewHelmTemplates(manifests).FilterBySkip(drift)
 	manifests = NewHelmTemplates(manifests).FilterByKind(drift)
+	manifests = NewHelmTemplates(manifests).TransformList(drift)
+	manifests = NewHelmTemplates(manifests).FilterByKind(drift) // filter by kind again after List is transformed to other kinds
 	manifests = NewHelmTemplates(manifests).FilterByName(drift)
 
 	releaseDrifted := &deviation.DriftedRelease{
@@ -48,9 +51,9 @@ func (drift *Drift) renderToDisk(manifests []string, chartName, releaseName, rel
 
 		template, err := NewHelmTemplate(manifest).Get(drift.log)
 		if err != nil {
-			log.Errorf("getting manifest information from template errored with '%v'", err)
-
-			return nil, err
+			log.Errorf("getting manifest information from template errored with '%v', skipping...", err)
+			log.Errorf("manifest content: %s", manifest)
+			continue
 		}
 
 		drift.log.Debugf("generating manifest '%s'", template.Resource)

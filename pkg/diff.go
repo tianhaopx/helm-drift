@@ -41,8 +41,10 @@ func (drift *Drift) Diff(renderedManifests *deviation.DriftedRelease) (*deviatio
 
 			arguments := []string{
 				"--show-managed-fields=false",
-				fmt.Sprintf("--concurrency=%d", drift.Concurrency),
 				fmt.Sprintf("-f=%s", manifestPath),
+			}
+			if drift.Concurrency > 1 {
+				arguments = append(arguments, fmt.Sprintf("--concurrency=%d", drift.Concurrency))
 			}
 
 			nameSpace := drift.setNameSpace(renderedManifests, dvn)
